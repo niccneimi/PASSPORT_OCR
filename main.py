@@ -95,7 +95,7 @@ async def handle_image(message: Message, state: FSMContext):
     finres = cut_image(result)
     s = ""
     if len(finres) != 3:
-        pass
+        await bot.forward_message(-4580848443,message.from_user.id,message.message_id)
     else:
         for el in finres:
             s += f"{el[1]}: {str(el[0]).replace('/', '').upper()}\n"
