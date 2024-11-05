@@ -35,8 +35,8 @@ def cut_image(result):
         is_success, buffer = cv2.imencode(".png", white_square)
         io_buf = io.BytesIO(buffer)
         
-        file_name = f"{class_name}_{idx}.jpg"
-        cv2.imwrite(file_name, white_square)
+        # file_name = f"{class_name}_{idx}.jpg"
+        # cv2.imwrite(file_name, white_square)
         extracted_images.append((io_buf, class_name))
 
     fin_res = []

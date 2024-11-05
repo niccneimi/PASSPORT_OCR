@@ -11,13 +11,36 @@ from aiogram.types.message_entity import MessageEntity
 from config import *
 import gspread
 from fpdf import FPDF
-from google.oauth2 import service_account
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 from pdfminer.high_level import extract_text
 import io
 from cutter import cut_image
 
 bot = Bot(TOKEN)
 dp = Dispatcher()
+
+def initialize_google_sheets():
+    scope = ['https://www.googleapis.com/auth/spreadsheets','https://www.googleapis.com/auth/drive','https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive.file']
+    creds = ServiceAccountCredentials.from_json_keyfile_name('testpythonapi-431022-fa40e718d6f1.json', scope)
+    client = gspread.authorize(creds)
+    return client
+
+def fill_data_in_google_sheets(user_id,data):
+    client = initialize_google_sheets()
+    sheet = client.open("inns_and_data").sheet1
+    lastname = ""
+    ffname = ""
+    birthday = ""
+    for item in data:
+        if item[1] == "lastname":
+            lastname = item[0]
+        elif item[1] == "ffname":
+            ffname = item[0]
+        elif item[1] == "birthday":
+            birthday = item[0]
+    full_name = f"{lastname} {ffname}".strip()
+    sheet.append_row([user_id, full_name.replace('/', '').upper(), birthday])
 #####################################################################
 
 ##############################COMANDS################################
@@ -37,8 +60,9 @@ async def handle_image(message: Message, state: FSMContext):
         pass
     else:
         for el in finres:
-            s+=f"{el[1]}: {str(el[0]).replace("/","").upper()}\n"
+            s += f"{el[1]}: {str(el[0]).replace('/', '').upper()}\n"
         await message.answer(s)
+        fill_data_in_google_sheets(message.from_user.id, finres)
     # OCR(result)
     # print(text)
     # fill_data_in_google_sheets([text])
