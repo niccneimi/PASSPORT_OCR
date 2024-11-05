@@ -53,4 +53,3 @@ def cut_image(result):
             else:
                 fin_res.append((wrd,"birthday"))
     return fin_res
-        

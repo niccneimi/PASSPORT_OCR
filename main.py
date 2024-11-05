@@ -14,7 +14,7 @@ from fpdf import FPDF
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from pdfminer.high_level import extract_text
-import io
+import io, re
 from cutter import cut_image
 
 bot = Bot(TOKEN)
@@ -41,6 +41,44 @@ def fill_data_in_google_sheets(user_id,data):
             birthday = item[0]
     full_name = f"{lastname} {ffname}".strip()
     sheet.append_row([user_id, full_name.replace('/', '').upper(), birthday])
+
+def extract_data_from_pdf_text(text):
+    fio_match = re.search(r'Фамилия\s+(\S+)\s+Имя\s+(\S+)\s+Отчество\s+(\S+)', text)
+    if fio_match:
+        lastname, firstname, middlename = fio_match.groups()
+    else:
+        return None
+
+    dob_match = re.search(r'Дата рождения\s+(\d{2}\.\d{2}\.\d{4})', text)
+    if dob_match:
+        dob = dob_match.group(1)
+    else:
+        return None
+
+    iin_match = re.search(r'Индивидуальный Идентификационный\s+Номер\(ИИН\):\s*(\d{12})', text)
+    if iin_match:
+        iin = iin_match.group(1)
+    else:
+        return None
+
+    return {
+        'lastname': lastname,
+        'firstname': firstname,
+        'middlename': middlename,
+        'dob': dob,
+        'iin': iin
+    }
+
+def update_google_sheets_with_iin(full_name, iin):
+    client = initialize_google_sheets()
+    sheet = client.open("inns_and_data").sheet1
+    
+    cell = sheet.find(full_name)
+    if cell:
+        row = cell.row
+        sheet.update_cell(row, 4, iin)
+        return True
+    return False
 #####################################################################
 
 ##############################COMANDS################################
@@ -74,8 +112,21 @@ async def handle_pdf(message: Message, state: FSMContext):
     file_path = file.file_path
     result: io.BytesIO = await bot.download_file(file_path)
     text = extract_text(result)
-    print(text)
-    # fill_data_in_google_sheets([text])
+    data = extract_data_from_pdf_text(text)
+    if data:
+        full_name = f"{data['lastname']} {data['firstname']} {data['middlename']}".strip().upper()
+        dob = data['dob']
+        iin = data['iin']
+        dob_from_iin = f"{iin[4:6]}.{iin[2:4]}.20{iin[:2]}"
+        if dob != dob_from_iin:
+            await message.answer("Ошибка: ИНН не соответствует дате рождения.")
+            return
+        if update_google_sheets_with_iin(full_name, iin):
+            await message.answer(f"Данные успешно обновлены:\nФИО: {full_name}\nДата рождения: {dob}\nИИН: {iin}")
+        else:
+            await message.answer("Не удалось найти соответствующую запись в таблице.")
+    else:
+        await message.answer("Не удалось извлечь необходимые данные из PDF.")
 
 #####################################################################
 
